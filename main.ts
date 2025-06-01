@@ -1,134 +1,143 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { Plugin, WorkspaceLeaf } from 'obsidian';
 
-// Remember to rename these classes and interfaces!
+export default class PropertyEditorControlPlugin extends Plugin {
+    private observer: MutationObserver | null = null;
 
-interface MyPluginSettings {
-	mySetting: string;
-}
+    async onload() {
+        console.log('Loading Property Editor Control Plugin');
+        
+        // Initialize the plugin
+        this.initializePlugin();
+        
+        // Listen for layout changes (switching between modes)
+        this.registerEvent(
+            this.app.workspace.on('layout-change', () => {
+                this.handleModeChange();
+            })
+        );
 
-const DEFAULT_SETTINGS: MyPluginSettings = {
-	mySetting: 'default'
-}
+        // Listen for active leaf changes
+        this.registerEvent(
+            this.app.workspace.on('active-leaf-change', () => {
+                this.handleModeChange();
+            })
+        );
+    }
 
-export default class MyPlugin extends Plugin {
-	settings: MyPluginSettings;
+    onunload() {
+        console.log('Unloading Property Editor Control Plugin');
+        this.cleanup();
+    }
 
-	async onload() {
-		await this.loadSettings();
+    private initializePlugin() {
+        // Set up mutation observer to watch for DOM changes
+        this.setupMutationObserver();
+        
+        // Initial check
+        this.handleModeChange();
+    }
 
-		// This creates an icon in the left ribbon.
-		const ribbonIconEl = this.addRibbonIcon('dice', 'Sample Plugin', (evt: MouseEvent) => {
-			// Called when the user clicks the icon.
-			new Notice('This is a notice!');
-		});
-		// Perform additional things with the ribbon
-		ribbonIconEl.addClass('my-plugin-ribbon-class');
+    private setupMutationObserver() {
+        // Clean up existing observer
+        if (this.observer) {
+            this.observer.disconnect();
+        }
 
-		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
-		const statusBarItemEl = this.addStatusBarItem();
-		statusBarItemEl.setText('Status Bar Text');
+        this.observer = new MutationObserver((mutations) => {
+            let shouldCheck = false;
+            
+            mutations.forEach((mutation) => {
+                // Check if nodes were added that might contain metadata properties
+                if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+                    mutation.addedNodes.forEach((node) => {
+                        if (node.nodeType === Node.ELEMENT_NODE) {
+                            const element = node as Element;
+                            if (element.classList?.contains('metadata-container') || 
+                                element.querySelector?.('.metadata-property-value')) {
+                                shouldCheck = true;
+                            }
+                        }
+                    });
+                }
+            });
 
-		// This adds a simple command that can be triggered anywhere
-		this.addCommand({
-			id: 'open-sample-modal-simple',
-			name: 'Open sample modal (simple)',
-			callback: () => {
-				new SampleModal(this.app).open();
-			}
-		});
-		// This adds an editor command that can perform some operation on the current editor instance
-		this.addCommand({
-			id: 'sample-editor-command',
-			name: 'Sample editor command',
-			editorCallback: (editor: Editor, view: MarkdownView) => {
-				console.log(editor.getSelection());
-				editor.replaceSelection('Sample Editor Command');
-			}
-		});
-		// This adds a complex command that can check whether the current state of the app allows execution of the command
-		this.addCommand({
-			id: 'open-sample-modal-complex',
-			name: 'Open sample modal (complex)',
-			checkCallback: (checking: boolean) => {
-				// Conditions to check
-				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
-				if (markdownView) {
-					// If checking is true, we're simply "checking" if the command can be run.
-					// If checking is false, then we want to actually perform the operation.
-					if (!checking) {
-						new SampleModal(this.app).open();
-					}
+            if (shouldCheck) {
+                // Debounce the check to avoid excessive calls
+                setTimeout(() => this.updatePropertyEditability(), 100);
+            }
+        });
 
-					// This command will only show up in Command Palette when the check function returns true
-					return true;
-				}
-			}
-		});
+        // Start observing
+        this.observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+    }
 
-		// This adds a settings tab so the user can configure various aspects of the plugin
-		this.addSettingTab(new SampleSettingTab(this.app, this));
+    private handleModeChange() {
+        // Small delay to ensure DOM has updated after mode change
+        setTimeout(() => {
+            this.updatePropertyEditability();
+        }, 50);
+    }
 
-		// If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
-		// Using this function will automatically remove the event listener when this plugin is disabled.
-		this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
-			console.log('click', evt);
-		});
+    private updatePropertyEditability() {
+        const activeLeaf = this.app.workspace.activeLeaf;
+        if (!activeLeaf) return;
 
-		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
-		this.registerInterval(window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000));
-	}
+        // Check if we're in reading mode
+        const isReadingMode = this.isInReadingMode(activeLeaf);
+        
+        // Find all metadata property value elements
+        const propertyElements = document.querySelectorAll('.metadata-property-value');
+        
+        propertyElements.forEach((element) => {
+            const htmlElement = element as HTMLElement;
+            
+            if (isReadingMode) {
+                // Disable editing in reading mode
+                htmlElement.setAttribute('contenteditable', 'false');
+                htmlElement.style.pointerEvents = 'none';
+                htmlElement.style.opacity = '0.7';
+            } else {
+                // Enable editing in edit mode
+                htmlElement.setAttribute('contenteditable', 'true');
+                htmlElement.style.pointerEvents = 'auto';
+                htmlElement.style.opacity = '1';
+            }
+        });
 
-	onunload() {
+        console.log(`Updated ${propertyElements.length} property elements for ${isReadingMode ? 'reading' : 'edit'} mode`);
+    }
 
-	}
+    private isInReadingMode(leaf: WorkspaceLeaf): boolean {
+        // Check the leaf's view state to determine if we're in reading mode
+        const view = leaf.view;
+        
+        // For markdown files, check if we're in preview/reading mode
+        if (view.getViewType() === 'markdown') {
+            const state = leaf.getViewState();
+            return state.state?.mode === 'preview';
+        }
+        
+        // For other view types, we might want to consider them as "reading mode"
+        // You can adjust this logic based on your needs
+        return view.getViewType() !== 'markdown';
+    }
 
-	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
-	}
+    private cleanup() {
+        if (this.observer) {
+            this.observer.disconnect();
+            this.observer = null;
+        }
 
-	async saveSettings() {
-		await this.saveData(this.settings);
-	}
-}
-
-class SampleModal extends Modal {
-	constructor(app: App) {
-		super(app);
-	}
-
-	onOpen() {
-		const {contentEl} = this;
-		contentEl.setText('Woah!');
-	}
-
-	onClose() {
-		const {contentEl} = this;
-		contentEl.empty();
-	}
-}
-
-class SampleSettingTab extends PluginSettingTab {
-	plugin: MyPlugin;
-
-	constructor(app: App, plugin: MyPlugin) {
-		super(app, plugin);
-		this.plugin = plugin;
-	}
-
-	display(): void {
-		const {containerEl} = this;
-
-		containerEl.empty();
-
-		new Setting(containerEl)
-			.setName('Setting #1')
-			.setDesc('It\'s a secret')
-			.addText(text => text
-				.setPlaceholder('Enter your secret')
-				.setValue(this.plugin.settings.mySetting)
-				.onChange(async (value) => {
-					this.plugin.settings.mySetting = value;
-					await this.plugin.saveSettings();
-				}));
-	}
+        // Reset all property elements to default state
+        const propertyElements = document.querySelectorAll('.metadata-property-value');
+        propertyElements.forEach((element) => {
+            const htmlElement = element as HTMLElement;
+            htmlElement.setAttribute('contenteditable', 'true');
+            htmlElement.style.pointerEvents = 'auto';
+            htmlElement.style.opacity = '1';
+        });
+    }
 }
