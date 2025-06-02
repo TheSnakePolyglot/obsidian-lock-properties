@@ -2,6 +2,7 @@ import { Plugin, WorkspaceLeaf } from 'obsidian';
 
 export default class PropertyEditorControlPlugin extends Plugin {
     private observer: MutationObserver | null = null;
+    private selectorClassText: string = ".metadata-input-longtext";
 
     async onload() {
         console.log('Loading Property Editor Control Plugin');
@@ -52,8 +53,7 @@ export default class PropertyEditorControlPlugin extends Plugin {
                     mutation.addedNodes.forEach((node) => {
                         if (node.nodeType === Node.ELEMENT_NODE) {
                             const element = node as Element;
-                            if (element.classList?.contains('metadata-container') || 
-                                element.querySelector?.('.metadata-property-value')) {
+                            if (element.querySelector?.(this.selectorClassText)) {
                                 shouldCheck = true;
                             }
                         }
@@ -89,7 +89,7 @@ export default class PropertyEditorControlPlugin extends Plugin {
         const isReadingMode = this.isInReadingMode(activeLeaf);
         
         // Find all metadata property value elements
-        const propertyElements = document.querySelectorAll('.metadata-property-value');
+        const propertyElements = document.querySelectorAll(this.selectorClassText);
         
         propertyElements.forEach((element) => {
             const htmlElement = element as HTMLElement;
@@ -132,7 +132,7 @@ export default class PropertyEditorControlPlugin extends Plugin {
         }
 
         // Reset all property elements to default state
-        const propertyElements = document.querySelectorAll('.metadata-property-value');
+        const propertyElements = document.querySelectorAll(this.selectorClassText);
         propertyElements.forEach((element) => {
             const htmlElement = element as HTMLElement;
             htmlElement.setAttribute('contenteditable', 'true');
