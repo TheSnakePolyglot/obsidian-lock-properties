@@ -7,9 +7,26 @@
 	display: none;
 }
 
-/* Make tags clickable */
+/* Give tags some space after deleting the remove button */
 .markdown-reading-view .metadata-content .multi-select-pill-content {
 	padding-right: .7em;
 }
 
 
+/* MINE */
+
+/* Dont show Pen for editing links */
+.markdown-reading-view .metadata-link-flair {
+     display: none;
+} 
+/*  */
+
+/* Dont allow clicking next to links since it shows other suggested links */
+.markdown-reading-view .metadata-link { 
+    pointer-events: none;
+} 
+
+.markdown-reading-view .metadata-link .metadata-link-inner { 
+    pointer-events: auto;
+}
+/*  */
