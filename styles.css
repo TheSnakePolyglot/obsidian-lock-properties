@@ -1,10 +1,6 @@
 
 /* From: https://forum.obsidian.md/t/how-to-disable-property-editor-on-reader-mode/82574/7  */
 
-.markdown-reading-view .metadata-content {
-	pointer-events: none;
-}
-
 .markdown-reading-view .metadata-content .multi-select-input,
 .markdown-reading-view .metadata-content .multi-select-pill-remove-button,
 .markdown-reading-view .metadata-content .metadata-add-button {
@@ -13,12 +9,7 @@
 
 /* Make tags clickable */
 .markdown-reading-view .metadata-content .multi-select-pill-content {
-	pointer-events: auto;
 	padding-right: .7em;
 }
 
-/* Make links clickable */
-.markdown-reading-view .metadata-content .metadata-link {
-	pointer-events: auto;
-}
 
