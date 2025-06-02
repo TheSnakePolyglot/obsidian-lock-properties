@@ -97,12 +97,10 @@ export default class PropertyEditorControlPlugin extends Plugin {
             if (isReadingMode) {
                 // Disable editing in reading mode
                 htmlElement.setAttribute('contenteditable', 'false');
-                htmlElement.style.pointerEvents = 'none';
                 htmlElement.style.opacity = '0.7';
             } else {
                 // Enable editing in edit mode
                 htmlElement.setAttribute('contenteditable', 'true');
-                htmlElement.style.pointerEvents = 'auto';
                 htmlElement.style.opacity = '1';
             }
         });
@@ -136,7 +134,6 @@ export default class PropertyEditorControlPlugin extends Plugin {
         propertyElements.forEach((element) => {
             const htmlElement = element as HTMLElement;
             htmlElement.setAttribute('contenteditable', 'true');
-            htmlElement.style.pointerEvents = 'auto';
             htmlElement.style.opacity = '1';
         });
     }
